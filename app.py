@@ -1,20 +1,27 @@
 import streamlit as st
 import requests
+from PIL import Image
+from io import BytesIO
 import matplotlib.pyplot as plt
+import openai  # pip install openai
 
 # ----------------------------
 # Streamlit page configuration
 # ----------------------------
 st.set_page_config(page_title="Knife Skills AI", page_icon="🔪")
 st.title("🔪 Knife Knowledge & Skills AI Tutor")
-st.write("Learn about knife skills, diagrams, and knife anatomy safely.")
+st.write("Learn about knife skills, diagrams, knife anatomy, and see AI-generated images safely.")
 
 # ----------------------------
-# Wikipedia API functions
+# OpenAI API key (store securely!)
+# ----------------------------
+openai.api_key = st.secrets.get("OPENAI_API_KEY", "YOUR_KEY_HERE")
+
+# ----------------------------
+# Wikipedia + fallback search functions
 # ----------------------------
 @st.cache_data(show_spinner=False)
 def search_wikipedia(query):
-    """Search Wikipedia and return the first matching title."""
     try:
         r = requests.get(
             "https://en.wikipedia.org/w/api.php",
@@ -31,7 +38,6 @@ def search_wikipedia(query):
 
 @st.cache_data(show_spinner=False)
 def get_summary(title):
-    """Get summary of a Wikipedia page by title."""
     try:
         r = requests.get(f"https://en.wikipedia.org/api/rest_v1/page/summary/{title}", timeout=5)
         r.raise_for_status()
@@ -39,11 +45,38 @@ def get_summary(title):
     except requests.RequestException:
         return "Information temporarily unavailable."
 
+def fetch_fallback(query):
+    """Fallback text from DuckDuckGo Instant Answer API."""
+    try:
+        r = requests.get("https://api.duckduckgo.com/",
+                         params={"q": query, "format": "json", "no_redirect": 1},
+                         timeout=5)
+        r.raise_for_status()
+        data = r.json()
+        return data.get("AbstractText") or "No text found for this topic."
+    except:
+        return "No additional text available."
+
+# ----------------------------
+# AI image generation
+# ----------------------------
+def generate_ai_image(prompt):
+    try:
+        response = openai.images.generate(
+            model="gpt-image-1",
+            prompt=prompt,
+            size="512x512"
+        )
+        image_url = response.data[0].url
+        return Image.open(BytesIO(requests.get(image_url).content))
+    except Exception as e:
+        st.error(f"Image generation failed: {e}")
+        return None
+
 # ----------------------------
 # Diagram functions
 # ----------------------------
 def blade_angle():
-    """Draw a blade sharpening angle diagram."""
     fig, ax = plt.subplots(figsize=(5,2))
     ax.plot([0,5],[0,0],linewidth=3, color="black")  # base
     ax.plot([0,5],[0,2], linewidth=2, color="red")   # blade angle
@@ -52,7 +85,6 @@ def blade_angle():
     st.pyplot(fig)
 
 def knife_anatomy():
-    """Draw a simple knife anatomy diagram."""
     fig, ax = plt.subplots(figsize=(6,2))
     ax.plot([0,5],[1,1], linewidth=4, color="gray")  # blade
     ax.plot([5,7],[1,1], linewidth=6, color="brown") # handle
@@ -79,13 +111,25 @@ if question:
             knife_anatomy()
     
     # ----------------------------
-    # Fetch Wikipedia summary
+    # Fetch Wikipedia summary with fallback
     # ----------------------------
     title = search_wikipedia(f"knife {question}")
     if title:
-        st.subheader("📚 AI Answer")
-        st.write(get_summary(title))
+        summary = get_summary(title)
     else:
-        st.warning("Could not find reliable information on Wikipedia.")
+        summary = fetch_fallback(f"knife {question}")
+
+    st.subheader("📚 AI Answer")
+    st.write(summary)
+
+    # ----------------------------
+    # AI-generated image
+    # ----------------------------
+    with st.spinner("Generating AI image..."):
+        image_prompt = f"High-quality, realistic illustration of {question} knife skill or tool"
+        img = generate_ai_image(image_prompt)
+        if img:
+            st.subheader("🖼️ AI Image")
+            st.image(img, use_column_width=True)
 
 st.caption("⚠️ Educational use only. Always practice knife skills safely.")
