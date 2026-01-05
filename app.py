@@ -1,8 +1,6 @@
 # app.py
 import streamlit as st
 import requests
-from PIL import Image
-from io import BytesIO
 import matplotlib.pyplot as plt
 import openai
 
@@ -11,14 +9,14 @@ import openai
 # ----------------------------
 st.set_page_config(page_title="Knife Skills AI", page_icon="🔪")
 st.title("🔪 Knife Knowledge & Skills AI Tutor")
-st.write("Learn about knife skills, diagrams, knife anatomy, and see AI-generated images safely.")
+st.write("Learn about knife skills, diagrams, and knife anatomy.")
 
 # ----------------------------
 # OpenAI API key
 # ----------------------------
 openai.api_key = st.secrets.get("OPENAI_API_KEY") or None
 if not openai.api_key:
-    st.warning("OpenAI API key not found! AI features (image generation and GPT fallback) will not work.")
+    st.warning("OpenAI API key not found! GPT fallback will not work.")
 
 # ----------------------------
 # Wikipedia + fallback functions
@@ -76,42 +74,21 @@ def gpt_fallback(query):
             max_tokens=300
         )
         return resp.choices[0].message.content.strip()
-    except openai.error.OpenAIError as e:
+    except openai.OpenAIError as e:   # <- fixed
         return f"Sorry, GPT fallback failed: {e}"
+    except Exception as e:
+        return f"Unexpected error in GPT fallback: {e}"
 
 def get_info(query):
-    # Try Wikipedia
+    """Try Wikipedia -> DuckDuckGo -> GPT fallback"""
     title = search_wikipedia(f"knife {query}")
     summary = get_summary(title) if title else None
     if summary:
         return summary
-    # Try DuckDuckGo
     summary = fetch_fallback(f"knife {query}")
     if summary:
         return summary
-    # Fallback to GPT
     return gpt_fallback(f"knife {query}")
-
-# ----------------------------
-# AI image generation
-# ----------------------------
-def generate_ai_image(prompt):
-    if not openai.api_key:
-        return None, "API key missing"
-    try:
-        response = openai.images.generate(
-            model="gpt-image-1",
-            prompt=prompt,
-            size="1024x1536"
-        )
-        if response.data and len(response.data) > 0:
-            image_url = response.data[0].url
-            return Image.open(BytesIO(requests.get(image_url).content)), None
-        return None, "No image returned from API"
-    except openai.error.OpenAIError as e:
-        return None, str(e)
-    except Exception as e:
-        return None, str(e)
 
 # ----------------------------
 # Diagram functions
@@ -148,21 +125,10 @@ if question.strip():
         with st.expander("🗂 Knife Anatomy Diagram"):
             knife_anatomy()
     
-    # Fetch summary (Wikipedia → DuckDuckGo → GPT)
+    # Fetch summary (Wikipedia -> DuckDuckGo -> GPT)
     with st.spinner("Fetching information..."):
         summary = get_info(question)
     st.subheader("📚 AI Answer")
     st.write(summary)
-    
-    # Generate AI image
-    if openai.api_key:
-        with st.spinner("Generating AI image..."):
-            image_prompt = f"High-quality, realistic illustration of {question} knife skill or tool"
-            img, error = generate_ai_image(image_prompt)
-            if img:
-                st.subheader("🖼️ AI Image")
-                st.image(img, use_column_width=True)
-            elif error:
-                st.warning(f"Image generation failed: {error}")
 
 st.caption("⚠️ Educational use only. Always practice knife skills safely.")
