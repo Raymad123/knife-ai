@@ -77,9 +77,12 @@ def generate_ai_image(prompt):
         return None
     try:
         response = openai.images.generate(
-            model="gpt-image-1",
-            prompt=prompt,
-            size="512x512"
+    model="gpt-image-1",
+    prompt=prompt,
+    size="1024x1024"
+)
+
+
         )
         if response.data and len(response.data) > 0:
             image_url = response.data[0].url
@@ -143,4 +146,5 @@ if question.strip():
                 st.image(img, use_column_width=True)
 
 st.caption("⚠️ Educational use only. Always practice knife skills safely.")
+
 
