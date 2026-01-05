@@ -14,22 +14,21 @@ st.title("🔪 Knife Knowledge & Skills AI Tutor")
 st.write("Learn about knife skills, diagrams, knife anatomy, and see AI-generated images safely.")
 
 # ----------------------------
-# OpenAI API key (works locally or on Streamlit Cloud)
+# OpenAI API key (Cloud or local)
 # ----------------------------
-# Try Streamlit Secrets first
-openai_api_key = st.secrets.get("OPENAI_API_KEY", None)
+# First try Streamlit Secrets
+openai.api_key = st.secrets.get("OPENAI_API_KEY")
 
-# If running locally, try environment variable
-if not openai_api_key:
-    openai_api_key = os.getenv("OPENAI_API_KEY")
-
-openai.api_key = openai_api_key
-
+# If not found, try environment variable (for local testing)
 if not openai.api_key:
-    st.warning("OpenAI API key not found! AI features (image generation) will not work.")
+    openai.api_key = os.getenv("OPENAI_API_KEY")
+
+# Warn if missing
+if not openai.api_key:
+    st.warning("OpenAI API key not found! AI image generation will not work.")
 
 # ----------------------------
-# Wikipedia + fallback search functions
+# Wikipedia + fallback search
 # ----------------------------
 @st.cache_data(show_spinner=False)
 def search_wikipedia(query):
@@ -57,12 +56,11 @@ def get_summary(title):
         return "Information temporarily unavailable."
 
 def fetch_fallback(query):
+    """Fallback text from DuckDuckGo Instant Answer API."""
     try:
-        r = requests.get(
-            "https://api.duckduckgo.com/",
-            params={"q": query, "format": "json", "no_redirect": 1},
-            timeout=5
-        )
+        r = requests.get("https://api.duckduckgo.com/",
+                         params={"q": query, "format": "json", "no_redirect": 1},
+                         timeout=5)
         r.raise_for_status()
         data = r.json()
         return data.get("AbstractText") or "No text found for this topic."
@@ -70,25 +68,22 @@ def fetch_fallback(query):
         return "No additional text available."
 
 # ----------------------------
-# AI image generation
+# AI image generation (fixed size)
 # ----------------------------
 def generate_ai_image(prompt):
     if not openai.api_key:
         return None
     try:
         response = openai.images.generate(
-    model="gpt-image-1",
-    prompt=prompt,
-    size="auto"
-)
-
-
+            model="gpt-image-1",
+            prompt=prompt,
+            size="1024x1536"  # vertical orientation for knives
         )
         if response.data and len(response.data) > 0:
             image_url = response.data[0].url
             return Image.open(BytesIO(requests.get(image_url).content))
         else:
-            st.error("No image returned from OpenAI API.")
+            st.error("No image returned from API.")
             return None
     except Exception as e:
         st.error(f"Image generation failed: {e}")
@@ -99,16 +94,16 @@ def generate_ai_image(prompt):
 # ----------------------------
 def blade_angle():
     fig, ax = plt.subplots(figsize=(5,2))
-    ax.plot([0,5],[0,0], linewidth=3, color="black")
-    ax.plot([0,5],[0,2], linewidth=2, color="red")
+    ax.plot([0,5],[0,0], linewidth=3, color="black")  # base
+    ax.plot([0,5],[0,2], linewidth=2, color="red")    # blade angle
     ax.text(2.5,0.3,"15–20°", fontsize=12, color="blue")
     ax.axis("off")
     st.pyplot(fig, clear_figure=True)
 
 def knife_anatomy():
     fig, ax = plt.subplots(figsize=(6,2))
-    ax.plot([0,5],[1,1], linewidth=4, color="gray")
-    ax.plot([5,7],[1,1], linewidth=6, color="brown")
+    ax.plot([0,5],[1,1], linewidth=4, color="gray")  # blade
+    ax.plot([5,7],[1,1], linewidth=6, color="brown") # handle
     ax.text(2.5,1.2,"Blade", fontsize=12)
     ax.text(5.5,1.2,"Handle", fontsize=12)
     ax.axis("off")
@@ -120,32 +115,33 @@ def knife_anatomy():
 question = st.text_input("Ask a knife question:")
 
 if question.strip():
-    # Show diagrams
+    # Show diagrams based on keywords
     if any(k in question.lower() for k in ["angle", "sharpen"]):
         with st.expander("🔪 Blade Angle Diagram"):
             blade_angle()
+            
     if any(k in question.lower() for k in ["parts", "anatomy"]):
         with st.expander("🗂 Knife Anatomy Diagram"):
             knife_anatomy()
     
-    # Fetch info
+    # Fetch Wikipedia summary with fallback
     with st.spinner("Fetching information..."):
         title = search_wikipedia(f"knife {question}")
         summary = get_summary(title) if title else fetch_fallback(f"knife {question}")
+        if not summary or summary.strip() == "":
+            summary = "Sorry, no information could be found for this topic."
 
     st.subheader("📚 AI Answer")
     st.write(summary)
 
-    # Generate AI image if key exists
+    # AI-generated image
     if openai.api_key:
         with st.spinner("Generating AI image..."):
-            img_prompt = f"High-quality, realistic illustration of {question} knife skill or tool"
-            img = generate_ai_image(img_prompt)
+            image_prompt = f"High-quality, realistic illustration of {question} knife skill or tool"
+            img = generate_ai_image(image_prompt)
             if img:
                 st.subheader("🖼️ AI Image")
                 st.image(img, use_column_width=True)
 
 st.caption("⚠️ Educational use only. Always practice knife skills safely.")
-
-
 
