@@ -2,11 +2,19 @@ import streamlit as st
 import requests
 import matplotlib.pyplot as plt
 
+# ----------------------------
+# Streamlit page configuration
+# ----------------------------
 st.set_page_config(page_title="Knife Skills AI", page_icon="🔪")
 st.title("🔪 Knife Knowledge & Skills AI Tutor")
-st.write("Educational knife skills, diagrams, and knowledge.")
+st.write("Learn about knife skills, diagrams, and knife anatomy safely.")
 
+# ----------------------------
+# Wikipedia API functions
+# ----------------------------
+@st.cache_data(show_spinner=False)
 def search_wikipedia(query):
+    """Search Wikipedia and return the first matching title."""
     try:
         r = requests.get(
             "https://en.wikipedia.org/w/api.php",
@@ -15,52 +23,69 @@ def search_wikipedia(query):
         )
         r.raise_for_status()
         data = r.json()
-        return data["query"]["search"][0]["title"]
-    except:
+        if data["query"]["search"]:
+            return data["query"]["search"][0]["title"]
+        return None
+    except requests.RequestException:
         return None
 
+@st.cache_data(show_spinner=False)
 def get_summary(title):
+    """Get summary of a Wikipedia page by title."""
     try:
-        r = requests.get(
-            f"https://en.wikipedia.org/api/rest_v1/page/summary/{title}",
-            timeout=5
-        )
+        r = requests.get(f"https://en.wikipedia.org/api/rest_v1/page/summary/{title}", timeout=5)
         r.raise_for_status()
-        return r.json().get("extract","")
-    except:
+        return r.json().get("extract", "No summary available.")
+    except requests.RequestException:
         return "Information temporarily unavailable."
 
+# ----------------------------
+# Diagram functions
+# ----------------------------
 def blade_angle():
-    fig, ax = plt.subplots()
-    ax.plot([0,5],[0,0],linewidth=3)
-    ax.plot([0,5],[0,2])
-    ax.text(2.2,0.4,"15–20°")
+    """Draw a blade sharpening angle diagram."""
+    fig, ax = plt.subplots(figsize=(5,2))
+    ax.plot([0,5],[0,0],linewidth=3, color="black")  # base
+    ax.plot([0,5],[0,2], linewidth=2, color="red")   # blade angle
+    ax.text(2.5,0.3,"15–20°", fontsize=12, color="blue")
     ax.axis("off")
     st.pyplot(fig)
 
 def knife_anatomy():
-    fig, ax = plt.subplots()
-    ax.plot([0,5],[1,1],linewidth=4)
-    ax.plot([5,7],[1,1],linewidth=6)
-    ax.text(2,1.3,"Blade")
-    ax.text(5.5,1.3,"Handle")
+    """Draw a simple knife anatomy diagram."""
+    fig, ax = plt.subplots(figsize=(6,2))
+    ax.plot([0,5],[1,1], linewidth=4, color="gray")  # blade
+    ax.plot([5,7],[1,1], linewidth=6, color="brown") # handle
+    ax.text(2.5,1.2,"Blade", fontsize=12)
+    ax.text(5.5,1.2,"Handle", fontsize=12)
     ax.axis("off")
     st.pyplot(fig)
 
+# ----------------------------
+# User input
+# ----------------------------
 question = st.text_input("Ask a knife question:")
 
 if question:
-    if "angle" in question or "sharpen" in question:
-        blade_angle()
-
-    if "parts" in question or "anatomy" in question:
-        knife_anatomy()
-
+    # ----------------------------
+    # Show diagrams based on keywords
+    # ----------------------------
+    if any(k in question.lower() for k in ["angle", "sharpen"]):
+        with st.expander("🔪 Blade Angle Diagram"):
+            blade_angle()
+            
+    if any(k in question.lower() for k in ["parts", "anatomy"]):
+        with st.expander("🗂 Knife Anatomy Diagram"):
+            knife_anatomy()
+    
+    # ----------------------------
+    # Fetch Wikipedia summary
+    # ----------------------------
     title = search_wikipedia(f"knife {question}")
     if title:
-        st.subheader("AI Answer")
+        st.subheader("📚 AI Answer")
         st.write(get_summary(title))
     else:
-        st.write("Could not find reliable information.")
+        st.warning("Could not find reliable information on Wikipedia.")
 
 st.caption("⚠️ Educational use only. Always practice knife skills safely.")
