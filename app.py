@@ -1,4 +1,13 @@
 import streamlit as st
+import openai
+
+# Get the key from Streamlit Secrets
+openai.api_key = st.secrets.get("OPENAI_API_KEY")
+
+# Warn user if the key is missing
+if not openai.api_key:
+    st.warning("OpenAI API key not found! AI image generation will not work.")
+import streamlit as st
 import requests
 from PIL import Image
 from io import BytesIO
@@ -140,3 +149,4 @@ if question.strip():
                 st.image(img, use_column_width=True)
 
 st.caption("⚠️ Educational use only. Always practice knife skills safely.")
+
