@@ -1,14 +1,5 @@
-# Streamlit app dependencies
-streamlit>=1.26,<2.0
+streamlit==1.26.0
+requests==2.31.0
+matplotlib==3.8.0
+openai==1.33.0
 
-# HTTP requests
-requests>=2.31
-
-# Image handling
-Pillow>=10.0
-
-# Plotting/diagrams
-matplotlib>=3.6,<4.0
-
-# OpenAI API
-openai>=1.33
